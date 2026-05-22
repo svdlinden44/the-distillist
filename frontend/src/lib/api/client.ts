@@ -19,7 +19,16 @@ function resolveApiBaseUrl(): string {
     }
     return ''
   }
-  return raw
+  if (raw) return raw
+
+  // Production SPA hosts: API lives on api.* subdomain (Railway backend service).
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname
+    if (host === 'thedistillist.com' || host === 'www.thedistillist.com') {
+      return 'https://api.thedistillist.com'
+    }
+  }
+  return ''
 }
 
 const BASE_URL = resolveApiBaseUrl()

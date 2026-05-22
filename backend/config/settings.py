@@ -77,14 +77,34 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Database — uses DATABASE_URL env var (Railway injects this automatically)
+# Database — Railway injects DATABASE_URL when Postgres is linked.
+# Prefer private networking URL when Railway exposes it (faster, no public egress).
+_database_url = (
+    os.environ.get("DATABASE_URL", "").strip()
+    or os.environ.get("DATABASE_PRIVATE_URL", "").strip()
+)
+if not os.environ.get("DATABASE_URL", "").strip() and os.environ.get(
+    "DATABASE_PRIVATE_URL", ""
+).strip():
+    os.environ["DATABASE_URL"] = os.environ["DATABASE_PRIVATE_URL"].strip()
+_use_postgres = _database_url.lower().startswith(
+    ("postgres://", "postgresql://", "postgis://")
+)
+
 DATABASES = {
     "default": dj_database_url.config(
         default="sqlite:///db.sqlite3",
         conn_max_age=600,
         conn_health_checks=True,
+        ssl_require=_use_postgres,
     )
 }
+
+if _use_postgres:
+    DATABASES["default"].setdefault("OPTIONS", {})
+    DATABASES["default"]["OPTIONS"]["connect_timeout"] = int(
+        os.environ.get("DATABASE_CONNECT_TIMEOUT", "10")
+    )
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

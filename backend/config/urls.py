@@ -10,7 +10,21 @@ admin.site.index_title = "Dashboard"
 
 
 def health(request):
-    return JsonResponse({"status": "ok"})
+    payload: dict[str, str] = {"status": "ok"}
+    if request.GET.get("db") in ("1", "true", "yes"):
+        from django.db import connection
+
+        try:
+            connection.ensure_connection()
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+            payload["database"] = "ok"
+        except Exception as exc:  # noqa: BLE001 — health probe must not 500 uncaught
+            return JsonResponse(
+                {"status": "degraded", "database": str(exc)},
+                status=503,
+            )
+    return JsonResponse(payload)
 
 
 urlpatterns = [
